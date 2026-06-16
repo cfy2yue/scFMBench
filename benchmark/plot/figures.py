@@ -161,8 +161,13 @@ def _save(fig: plt.Figure, out_dir: Path, name: str) -> Tuple[Path, Path]:
 
 
 def _scfm_root_from_out_dir(out_dir: Path) -> Path:
-    """Resolve ``.../output/figures`` back to the scFM root."""
+    """Resolve ``.../<output-root>/figures`` back to the scFM delivery root."""
     return out_dir.resolve().parents[1]
+
+
+def _embeddings_root_from_out_dir(out_dir: Path) -> Path:
+    """Resolve the embedding root that shares the same output root as figures."""
+    return out_dir.resolve().parent / "embeddings"
 
 
 def _latent_norm_cache_path(out_dir: Path) -> Path:
@@ -199,7 +204,7 @@ def _median_cell_l2_norm(
     key = f"{model}/{dataset_id}"
     if key in cache:
         return float(cache[key])
-    latent_path = scfm_root / "output" / "embeddings" / model / dataset_id / "raw" / "latent.npy"
+    latent_path = _embeddings_root_from_out_dir(out_dir) / model / dataset_id / "raw" / "latent.npy"
     if not latent_path.is_file():
         LOG.warning("Missing latent for norm cache: %s", latent_path)
         return float("nan")
@@ -246,7 +251,7 @@ def _scale_normalize_per_pert(
     out_dir: Path,
     dataset_id: str,
 ) -> pd.DataFrame:
-    """Add ``l2_scale_norm = l2 / median ‖z‖`` to a slice of ``per_perturb_table``."""
+    """Add ``l2_scale_norm = l2 / median ||z||`` to a slice of ``per_perturb_table``."""
     sub = per_pert_df[per_pert_df["dataset_id"] == dataset_id].copy()
     if sub.empty:
         sub["l2_scale_norm"] = []
@@ -1065,9 +1070,9 @@ def fig4_chempert(df: pd.DataFrame, out_dir: Path,
     ax_a2 = fig.add_subplot(gs[0, 1])
     _grouped_bar_chempert(
         ax_a2, raw_scaled, column="perturb.centroid_shift.mean_l2_to_control.scale_norm",
-        models=order, ylabel="L2 / median ‖z‖", show_legend=False
+        models=order, ylabel="L2 / median ||z||", show_legend=False
     )
-    ax_a2.set_title("scale-normalized L2 (÷ median ‖z‖)", loc="left")
+    ax_a2.set_title("scale-normalized L2 (/ median ||z||)", loc="left")
 
     # (b) EMD mean per dataset, raw and scale-normalized
     ax_b = fig.add_subplot(gs[0, 3])
@@ -1079,7 +1084,7 @@ def fig4_chempert(df: pd.DataFrame, out_dir: Path,
     ax_b2 = fig.add_subplot(gs[0, 4])
     _grouped_bar_chempert(
         ax_b2, raw_scaled, column="perturb.ot_summary.emd_mean.scale_norm",
-        models=order, ylabel="EMD / median ‖z‖", show_legend=True
+        models=order, ylabel="EMD / median ||z||", show_legend=True
     )
     ax_b2.set_title("scale-normalized EMD", loc="left")
 
@@ -1347,9 +1352,9 @@ def fig4b_genepert(df: pd.DataFrame, out_dir: Path,
 
     plot_col_l2sn = "_plot_l2sn" if "_plot_l2sn" in df_b.columns else col_sn
     ylab = (
-        "L2 / median ‖z‖"
+        "L2 / median ||z||"
         if plot_col_l2sn == col_sn
-        else "L2 / ‖z‖  (fallback: PCA-128 L2)"
+        else "L2 / ||z||  (fallback: PCA-128 L2)"
     )
     _grouped_bar_genepert(
         ax_a2, df_b, column=plot_col_l2sn,
@@ -1367,7 +1372,7 @@ def fig4b_genepert(df: pd.DataFrame, out_dir: Path,
     ax_bem2 = fig.add_subplot(gs[0, 4])
     _grouped_bar_genepert(
         ax_bem2, raw_scaled, column="perturb.ot_summary.emd_mean.scale_norm",
-        models=order, ylabel="EMD / median ‖z‖", show_legend=True,
+        models=order, ylabel="EMD / median ||z||", show_legend=True,
     )
     ax_bem2.set_title("scale-normalized EMD", loc="left")
 
@@ -1438,7 +1443,7 @@ def fig4b_genepert(df: pd.DataFrame, out_dir: Path,
     fig.text(
         0.01,
         0.04,
-        "Genepert CRISPR screens vs control latent geometry; normalization matches Fig.4 (÷ median ‖z‖). ",
+        "Genepert CRISPR screens vs control latent geometry; normalization matches Fig.4 (/ median ||z||). ",
         fontsize=5.2,
         color="#555555",
         ha="left",
@@ -1734,9 +1739,11 @@ _ATLAS_EFFICIENCY_DATASETS: Tuple[str, ...] = (
 
 
 def _load_throughput_table(scfm_root: Path | None = None) -> pd.DataFrame:
-    """Load per-run throughput metadata from ``output/embeddings``."""
+    """Load per-run throughput metadata from the configured output embeddings."""
     root = (scfm_root or Path.cwd()).resolve()
-    base = root / "output" / "embeddings"
+    base = root / "scFM_output" / "embeddings"
+    if not base.is_dir():
+        base = root / "output" / "embeddings"
     baseline_wall = _load_baseline_wall_times(root)
     rows: list[dict] = []
     skipped_missing_wall = 0

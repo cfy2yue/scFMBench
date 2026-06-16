@@ -73,9 +73,13 @@ def _rows_from_summaries(paths: List[Path], metrics_root: Path) -> List[Dict[str
 def _write_scfm_benchmark_csvs(scfm: Path) -> None:
     import pandas as pd
 
-    metrics_root = paths.output_root() / "metrics"
-    paths = _collect_scfm_summaries(metrics_root)
-    rows = _rows_from_summaries(paths, metrics_root)
+    metrics_root = Path(
+        paths.output_root()
+        if scfm == SCFM_ROOT.resolve()
+        else scfm.parent / "scFM_output"
+    ) / "metrics"
+    summary_paths = _collect_scfm_summaries(metrics_root)
+    rows = _rows_from_summaries(summary_paths, metrics_root)
     if not rows:
         print(json.dumps({"warn": "no summaries found", "metrics_root": str(metrics_root)}))
         return
