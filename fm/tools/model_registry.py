@@ -189,7 +189,12 @@ def check_weights(model: str) -> Tuple[str, str]:
         )
         if Path(ck).is_file() and Path(mean_h5ad).is_file():
             return "ready", str(ck)
-        return "missing", f"NicheFormer ckpt or model mean missing: {ck}, {mean_h5ad}"
+        missing = []
+        if not Path(ck).is_file():
+            missing.append(f"ckpt={ck}")
+        if not Path(mean_h5ad).is_file():
+            missing.append(f"model_mean={mean_h5ad}")
+        return "missing", "NicheFormer missing " + ", ".join(missing)
     if m == "transcriptformer":
         model = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_MODEL", "tf_sapiens").strip()
         ck = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_CKPT", str(PRETRAINED_ROOT / "transcriptformer" / model))
