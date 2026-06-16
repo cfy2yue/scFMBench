@@ -63,6 +63,8 @@ def thread_gpu_env(gpu_id: str) -> Dict[str, str]:
     e["MKL_NUM_THREADS"] = "2"
     e["OPENBLAS_NUM_THREADS"] = "2"
     e["NUMEXPR_NUM_THREADS"] = "2"
+    e["TORCHINDUCTOR_COMPILE_THREADS"] = "2"
+    e["MAX_JOBS"] = "2"
     e["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     cache = paths.cache_root()
     e.setdefault("HF_HOME", str(cache / "huggingface"))

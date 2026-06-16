@@ -111,9 +111,13 @@ def _infer_task(
 
     has_atlas_cols = "batch" in cols and "cell_type" in cols
     # Gene-pert bench uses perturbation + is_control; chem bench uses perturbation + control.
-    # Prefer genepert when is_control is present so perturb metrics are never skipped.
-    has_gene_pert = ("perturbation" in cols) and ("is_control" in cols)
-    has_chem_pert = ("perturbation" in cols) and ("control" in cols) and not has_gene_pert
+    # Some chempert exports also carry an is_control compatibility column, so category/source
+    # must decide precedence rather than raw column presence alone.
+    has_chem_pert = category == "chempert" and ("perturbation" in cols) and ("control" in cols)
+    has_gene_pert = category == "genepert" and ("perturbation" in cols) and ("is_control" in cols)
+    if category not in {"chempert", "genepert"}:
+        has_chem_pert = ("perturbation" in cols) and ("control" in cols)
+        has_gene_pert = not has_chem_pert and ("perturbation" in cols) and ("is_control" in cols)
     has_pert = has_chem_pert or has_gene_pert
 
     skip: List[str] = []
@@ -125,11 +129,10 @@ def _infer_task(
     batch_col = "batch"
     label_col = "cell_type"
     pert_col = "perturbation" if has_pert else "pert"
-    # Prefer genepert mapping whenever both chem (`control`) and gene (`is_control`) columns exist.
-    if has_gene_pert:
-        is_control_col = "is_control"
-    elif has_chem_pert:
+    if has_chem_pert:
         is_control_col = "control"
+    elif has_gene_pert:
+        is_control_col = "is_control"
     else:
         is_control_col = "is_control"
     cell_line_col = "cell_line" if "cell_line" in cols else "cell_line"
