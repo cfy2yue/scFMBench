@@ -86,9 +86,13 @@ Benchmark 约定：`adata.X` 上游已是 `log1p(normalize_total(...))`。所有
 | CellNavi | CORRECT (adapter) | `expm1(clip)` → 整数化 rawcount；`normalize=True` 时 `log1p(raw/sum*1e4)` 与上游 `prepare_cell_input` 一致 | `adapters/cellnavi/encoder.py` + `third_party/CellNavi/cellnavi/data_provider/data_utils.py` |
 | scFoundation | CORRECT (adapter) | 默认 `pre_normalized='T'`：直接把 `adata.X` 当作官方 normalize+log1p 输入；`input_is_log1p=False` 时走官方 `F` 分支（`log1p(count/sum*1e4)`） | `adapters/scfoundation/encoder.py` + `third_party/scFoundation/model/get_embedding.py` |
 | scVI (dataset-fitted) | FIXED | `input_is_log1p=True` 时走 `gene_likelihood='normal'`（Gaussian 解码头），直接使用 log1p `X`/layer，不造伪计数 | `adapters/scvi_baseline/encoder.py:164-215` |
+| TranscriptFormer | CORRECT (explicit counts only) | 官方路径需要 raw counts；benchmark `X` 已是 log1p 时只使用 `adata.raw.X` 或显式 count layer（默认 `layers['counts']`/`raw_counts`/`count`），不对 `X` 做第二次 `log1p`，也不 `expm1` 造伪 counts | `adapters/transcriptformer/encoder.py` |
+| NicheFormer | CORRECT (explicit counts only) | direct tokenization 需要 count-like 输入；benchmark `X` 已是 log1p 时只使用显式 count layer（默认 `layers['counts']`/`raw_counts`/`count`），缺失即报错，不 `expm1` 造伪 counts | `adapters/nicheformer/encoder.py` |
 
 - **Zeroshot foundation 表内**：`input_is_log1p=True` 是**默认且唯一经过审计的**口径。若调用方有真 raw counts，必须显式
-  传 `input_is_log1p=False`（State 同时对应把 monkey-patch 切到 raw 分支）。
+  传 `input_is_log1p=False`（State 同时对应把 monkey-patch 切到 raw 分支）。TranscriptFormer/NicheFormer
+  是例外中的严格路径：默认 log1p 口径下会寻找 `raw.X`/`layers['counts']` 这类显式 count source，
+  找不到就失败，避免把 benchmark log1p `X` 当 counts。
 - 所有 adapter 都**不 mutate** 原 `adata`（稀疏用 `.copy()` + `.data`，稠密用
   `np.array(..., copy=True)`/新分配 ndarray，State 仅 `write_h5ad` 到临时路径）。
 - 每个模型的详细推导、行号与残余风险见各自 `encoder_impl/<model>.md` 末尾的

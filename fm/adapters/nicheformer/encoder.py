@@ -17,6 +17,9 @@ import numpy as np
 
 import paths
 
+GENE_ID_CANDIDATES = ("ensembl_id", "ensemblid", "Ensembl_ID", "ENSEMBL", "gene_id", "feature_id", "gene_ids")
+COUNT_LAYER_CANDIDATES = ("counts", "raw_counts", "count")
+
 
 def _third_party_src() -> Path:
     return paths.third_party_root() / "nicheformer" / "src"
@@ -33,30 +36,67 @@ def _mean_h5ad_path() -> Path:
     return Path(value).expanduser().resolve() if value else default
 
 
-def _aligned_counts_and_means(adata: ad.AnnData, mean_h5ad: Path, input_is_log1p: bool) -> tuple[ad.AnnData, np.ndarray]:
-    if input_is_log1p:
-        raise ValueError(
-            "NicheFormer direct tokenization expects count-like X, while benchmark X is marked log1p. "
-            "This adapter will not apply a second log1p and will not silently expm1(log1p X) into pseudo-counts. "
-            "Provide raw/count-like X and pass --no-input-is-log1p only for official evaluation on count-like input."
-        )
+def _counts_layer_name(adata: ad.AnnData) -> str | None:
+    configured = os.environ.get("LATENT_BENCH_NICHEFORMER_COUNTS_LAYER", "").strip()
+    candidates = (configured,) if configured else COUNT_LAYER_CANDIDATES
+    for candidate in candidates:
+        if candidate and candidate in adata.layers:
+            return candidate
+    return None
+
+
+def _select_count_input(adata: ad.AnnData, input_is_log1p: bool) -> tuple[ad.AnnData, str]:
+    if not input_is_log1p:
+        return adata, "X"
+    layer = _counts_layer_name(adata)
+    if layer is not None:
+        out = adata.copy()
+        out.X = adata.layers[layer].copy()
+        return out, f"layers[{layer!r}]"
+    raise ValueError(
+        "NicheFormer direct tokenization expects count-like X, while benchmark X is marked log1p and no "
+        "raw-count layer was found. This adapter will not apply a second log1p and will not silently "
+        "expm1(log1p X) into pseudo-counts. Provide a raw-count layer such as layers['counts']; only pass "
+        "--no-input-is-log1p when X is genuinely count-like."
+    )
+
+
+def _use_ensembl_var_names_if_needed(adata: ad.AnnData, target_genes: set[str]) -> ad.AnnData:
+    overlap = len(target_genes.intersection(adata.var_names.astype(str)))
+    if overlap >= 1000:
+        return adata
+    for candidate in GENE_ID_CANDIDATES:
+        if candidate in adata.var.columns:
+            values = adata.var[candidate].astype(str)
+            if len(target_genes.intersection(values)) >= 1000:
+                out = adata.copy()
+                out.var_names = values
+                return out
+    return adata
+
+
+def _aligned_counts_and_means(
+    adata: ad.AnnData, mean_h5ad: Path, input_is_log1p: bool
+) -> tuple[ad.AnnData, np.ndarray, str]:
     if not mean_h5ad.is_file():
         raise FileNotFoundError(f"NicheFormer model mean h5ad missing: {mean_h5ad}")
     mean_adata = ad.read_h5ad(mean_h5ad)
     target_genes = mean_adata.var_names.astype(str)
     if mean_adata.X.shape[0] != 1:
         raise ValueError(f"Expected one-row NicheFormer mean h5ad, got {mean_adata.shape}")
-    missing = [g for g in target_genes[:100] if g not in adata.var_names]
+    count_adata, counts_source = _select_count_input(adata, input_is_log1p)
+    count_adata = _use_ensembl_var_names_if_needed(count_adata, set(target_genes))
+    missing = [g for g in target_genes[:100] if g not in count_adata.var_names]
     if len(missing) == 100:
         raise ValueError(
             "NicheFormer mean genes do not match input var_names. Use Ensembl IDs as var_names "
-            "or pre-align the AnnData to the NicheFormer model mean gene set."
+            "or provide an Ensembl var column such as 'ensemblid', 'Ensembl_ID', or 'ENSEMBL'."
         )
-    aligned = adata[:, target_genes.intersection(adata.var_names)].copy()
+    aligned = count_adata[:, target_genes.intersection(count_adata.var_names)].copy()
     if aligned.n_vars < 1000:
         raise ValueError(f"Only {aligned.n_vars} NicheFormer genes overlap input; refusing to encode.")
     means = np.asarray(mean_adata[:, aligned.var_names].X).reshape(-1).astype(np.float32)
-    return aligned, means
+    return aligned, means, counts_source
 
 
 def encode(
@@ -89,7 +129,7 @@ def encode(
     from nicheformer.data.dataset import sf_normalize, _sub_tokenize_data
     from nicheformer.models._nicheformer import Nicheformer
 
-    aligned, means = _aligned_counts_and_means(adata, _mean_h5ad_path(), input_is_log1p)
+    aligned, means, counts_source = _aligned_counts_and_means(adata, _mean_h5ad_path(), input_is_log1p)
     model = Nicheformer.load_from_checkpoint(str(ckpt), map_location="cpu")
     model.eval()
     dev = torch.device(device if device.startswith("cuda") and torch.cuda.is_available() else "cpu")
@@ -130,6 +170,7 @@ def encode(
         "official_repo": "https://github.com/theislab/nicheformer",
         "checkpoint_path": str(ckpt),
         "mean_h5ad": str(_mean_h5ad_path()),
+        "counts_source": counts_source,
         "pooling": "official get_embeddings mean pooling",
         "layer": int(os.environ.get("LATENT_BENCH_NICHEFORMER_LAYER", "-1")),
         "n_overlap_genes": int(aligned.n_vars),

@@ -7,6 +7,7 @@ h5ad, delegates inference to that CLI, then loads the resulting embeddings.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -19,6 +20,9 @@ import numpy as np
 
 import paths
 
+GENE_ID_CANDIDATES = ("ensembl_id", "ensemblid", "Ensembl_ID", "ENSEMBL", "gene_id", "feature_id", "gene_ids")
+COUNT_LAYER_CANDIDATES = ("counts", "raw_counts", "count")
+
 
 def _checkpoint_dir() -> Path:
     value = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_CKPT", "").strip()
@@ -30,7 +34,7 @@ def _ensure_ensembl_column(adata: ad.AnnData, gene_col_name: str) -> ad.AnnData:
     if gene_col_name in adata.var.columns:
         return adata
     out = adata.copy()
-    for candidate in ("ensembl_id", "ensemblid", "gene_id", "feature_id", "gene_ids"):
+    for candidate in GENE_ID_CANDIDATES:
         if candidate in out.var.columns:
             out.var[gene_col_name] = out.var[candidate].astype(str).values
             return out
@@ -41,6 +45,61 @@ def _ensure_ensembl_column(adata: ad.AnnData, gene_col_name: str) -> ad.AnnData:
         "TranscriptFormer requires Ensembl gene IDs. Add adata.var['ensembl_id'] "
         "or set LATENT_BENCH_TRANSCRIPTFORMER_GENE_COL to an existing var column."
     )
+
+
+def _counts_layer_name(adata: ad.AnnData) -> str | None:
+    configured = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_COUNTS_LAYER", "").strip()
+    candidates = (configured,) if configured else COUNT_LAYER_CANDIDATES
+    for candidate in candidates:
+        if candidate and candidate in adata.layers:
+            return candidate
+    return None
+
+
+def _select_count_input(adata: ad.AnnData, input_is_log1p: bool) -> tuple[ad.AnnData, str, str]:
+    if not input_is_log1p:
+        return adata, "false", "X"
+    if adata.raw is not None:
+        return adata, "true", "raw.X"
+    layer = _counts_layer_name(adata)
+    if layer is not None:
+        out = adata.copy()
+        out.X = adata.layers[layer].copy()
+        return out, "false", f"layers[{layer!r}]"
+    raise ValueError(
+        "TranscriptFormer needs raw counts, but benchmark X is marked log1p and no count source was found. "
+        "This adapter will not apply a second log1p and will not silently expm1(log1p X) into pseudo-counts. "
+        "Provide adata.raw.X or a raw-count layer such as layers['counts']; only pass --no-input-is-log1p when "
+        "X is genuinely count-like."
+    )
+
+
+def _ensure_aux_obs_columns(adata: ad.AnnData, ckpt: Path) -> tuple[ad.AnnData, list[str]]:
+    vocab_dir = ckpt / "vocabs"
+    if not vocab_dir.is_dir():
+        return adata, []
+    aux_cols: list[str] = []
+    for vocab_path in sorted(vocab_dir.glob("*_vocab.json")):
+        aux_col = vocab_path.name.removesuffix("_vocab.json")
+        if aux_col:
+            aux_cols.append(aux_col)
+    missing = [col for col in aux_cols if col not in adata.obs.columns]
+    if not missing:
+        return adata, []
+    out = adata.copy()
+    for col in missing:
+        default = os.environ.get(f"LATENT_BENCH_TRANSCRIPTFORMER_DEFAULT_{col.upper()}", "unknown")
+        # Confirm the configured fallback exists; otherwise use the first key so the official tokenizer
+        # gets a legal category rather than raising KeyError before it can map to unknown.
+        vocab_path = vocab_dir / f"{col}_vocab.json"
+        try:
+            vocab = json.load(open(vocab_path))
+        except OSError:
+            vocab = {}
+        if vocab and default not in vocab:
+            default = "unknown" if "unknown" in vocab else next(iter(vocab))
+        out.obs[col] = default
+    return out, missing
 
 
 def _run_cli(cmd: list[str], env: dict[str, str]) -> None:
@@ -63,9 +122,9 @@ def encode(
 
     TranscriptFormer expects raw counts. Benchmark ``adata.X`` is commonly
     already log1p-normalized, so this adapter never applies another log1p and
-    never silently ``expm1``-inverts values.  If ``input_is_log1p`` is true, it
-    requires ``adata.raw`` to contain counts and asks the official CLI to use
-    ``AnnData.raw.X``.  Otherwise it uses ``adata.X`` directly.
+    never silently ``expm1``-inverts values. If ``input_is_log1p`` is true, it
+    uses an explicit count source only: first ``AnnData.raw.X``, then a raw-count
+    layer such as ``layers["counts"]``. Otherwise it uses ``adata.X`` directly.
     """
     del force_pert, show_progress
     ckpt = _checkpoint_dir()
@@ -76,19 +135,9 @@ def encode(
         )
 
     gene_col = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_GENE_COL", "ensembl_id").strip()
-    work_adata = _ensure_ensembl_column(adata, gene_col)
-    use_raw = "auto"
-    if input_is_log1p:
-        if work_adata.raw is None:
-            raise ValueError(
-                "TranscriptFormer needs raw counts, but benchmark X is marked log1p and adata.raw is absent. "
-                "This adapter will not apply a second log1p and will not silently expm1(log1p X) into pseudo-counts. "
-                "Provide a raw-count h5ad/adata.raw for official evaluation, or pass --no-input-is-log1p only for "
-                "an engineering smoke where X is genuinely count-like."
-            )
-        use_raw = "true"
-    else:
-        use_raw = "false"
+    count_adata, use_raw, counts_source = _select_count_input(adata, input_is_log1p)
+    work_adata = _ensure_ensembl_column(count_adata, gene_col)
+    work_adata, filled_aux_cols = _ensure_aux_obs_columns(work_adata, ckpt)
 
     precision = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_PRECISION", "16-mixed")
     emb_type = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_EMB_TYPE", "cell")
@@ -162,6 +211,8 @@ def encode(
         "emb_type": emb_type,
         "gene_col_name": gene_col,
         "use_raw": use_raw,
+        "counts_source": counts_source,
+        "filled_aux_obs_columns": filled_aux_cols,
         "precision": precision,
         "batch_size": int(batch_size),
         "num_gpus": int(num_gpus),
