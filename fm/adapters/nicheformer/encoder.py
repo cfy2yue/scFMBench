@@ -36,8 +36,9 @@ def _mean_h5ad_path() -> Path:
 def _aligned_counts_and_means(adata: ad.AnnData, mean_h5ad: Path, input_is_log1p: bool) -> tuple[ad.AnnData, np.ndarray]:
     if input_is_log1p:
         raise ValueError(
-            "NicheFormer direct tokenization expects count-like X. Provide raw-count h5ad "
-            "and pass --no-input-is-log1p; this adapter will not exponentiate log data implicitly."
+            "NicheFormer direct tokenization expects count-like X, while benchmark X is marked log1p. "
+            "This adapter will not apply a second log1p and will not silently expm1(log1p X) into pseudo-counts. "
+            "Provide raw/count-like X and pass --no-input-is-log1p only for official evaluation on count-like input."
         )
     if not mean_h5ad.is_file():
         raise FileNotFoundError(f"NicheFormer model mean h5ad missing: {mean_h5ad}")

@@ -61,8 +61,10 @@ def encode(
 ) -> tuple[np.ndarray, dict[str, Any]]:
     """Return TranscriptFormer mean-pooled cell embeddings.
 
-    TranscriptFormer expects raw counts. If ``input_is_log1p`` is true, this
-    adapter relies on ``adata.raw`` being present and asks the official CLI to use
+    TranscriptFormer expects raw counts. Benchmark ``adata.X`` is commonly
+    already log1p-normalized, so this adapter never applies another log1p and
+    never silently ``expm1``-inverts values.  If ``input_is_log1p`` is true, it
+    requires ``adata.raw`` to contain counts and asks the official CLI to use
     ``AnnData.raw.X``.  Otherwise it uses ``adata.X`` directly.
     """
     del force_pert, show_progress
@@ -79,8 +81,10 @@ def encode(
     if input_is_log1p:
         if work_adata.raw is None:
             raise ValueError(
-                "TranscriptFormer needs raw counts, but input_is_log1p=True and adata.raw is absent. "
-                "Export this model from a raw-count h5ad or pass --no-input-is-log1p only when X is counts."
+                "TranscriptFormer needs raw counts, but benchmark X is marked log1p and adata.raw is absent. "
+                "This adapter will not apply a second log1p and will not silently expm1(log1p X) into pseudo-counts. "
+                "Provide a raw-count h5ad/adata.raw for official evaluation, or pass --no-input-is-log1p only for "
+                "an engineering smoke where X is genuinely count-like."
             )
         use_raw = "true"
     else:
