@@ -36,8 +36,8 @@ ENV_NAME_BY_MODEL: Dict[str, str] = {
     "stack": "scdfm",
     "geneformer": "scdfm",
     "cellnavi": "cellnavi",
-    "nicheformer": "scdfm",
-    "transcriptformer": "scdfm",
+    "nicheformer": "nicheformer",
+    "transcriptformer": "transcriptformer",
 }
 
 # Initial GPU slot assignment (plan); actual queue may skip missing models.

@@ -32,6 +32,14 @@ Official download notes:
   The adapter uses `tf_sapiens` by default because the current benchmark data are
   human-centric; use `tf_exemplar` for cross-species data.
 
+Environment notes:
+
+- Use a dedicated `transcriptformer` env. The official package requires Python
+  >=3.11 and pins `torch==2.5.1`; the shared `scdfm` env may carry newer torch
+  versions that the README warns can trigger checkpoint pickle errors.
+- Use a dedicated `nicheformer` env. NicheFormer pins older numpy/pandas and
+  includes Merlin/Dask dependencies that should not be mixed into `scdfm`.
+
 Validate with:
 
 ```bash
