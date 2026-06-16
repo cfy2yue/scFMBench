@@ -181,11 +181,19 @@ def _reason(count_source: str, gene_col: str, niche_overlap: int, have_niche_mea
 
 
 def _discover_h5ads(dataset_root: Path) -> list[Path]:
+    # Accept either the canonical dataset parent (/.../dataset) or the
+    # scFM_data directory itself. This keeps the CLI aligned with SCFM_DATA_ROOT.
+    if (dataset_root / "staging").is_dir():
+        scfm_data = dataset_root
+        dataset_parent = dataset_root.parent
+    else:
+        scfm_data = dataset_root / "scFM_data"
+        dataset_parent = dataset_root
     roots = [
-        dataset_root / "scFM_data" / "staging",
-        dataset_root / "raw" / "atlas_TS",
-        dataset_root / "raw" / "chemicalpert_bench",
-        dataset_root / "raw" / "genepert_bench",
+        scfm_data / "staging",
+        dataset_parent / "raw" / "atlas_TS",
+        dataset_parent / "raw" / "chemicalpert_bench",
+        dataset_parent / "raw" / "genepert_bench",
     ]
     files: list[Path] = []
     for root in roots:

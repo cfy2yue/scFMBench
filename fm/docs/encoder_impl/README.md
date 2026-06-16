@@ -13,6 +13,8 @@
 | xVERSE-384 | 已实现 | 仓库内暂无 `test_xverse.py`；历史结果见 [xverse.md](xverse.md) | [xverse.md](xverse.md) |
 | CellNavi | 已实现 | [`smoke/test_cellnavi.py`](../../smoke/test_cellnavi.py)（缺资产时 SKIP） | [cellnavi.md](cellnavi.md) |
 | scFoundation | 已实现 | [`smoke/test_scfoundation.py`](../../smoke/test_scfoundation.py)（缺 ckpt 时 SKIP） | [scfoundation.md](scfoundation.md) |
+| NicheFormer | adapter 已实现，缺 ckpt | 待官方 Mendeley ckpt 落盘后 smoke | [nicheformer.md](nicheformer.md) |
+| TranscriptFormer | 已实现，chempert full embedding ready | `sciplex3_A549` 128-cell smoke 已通过 | [transcriptformer.md](transcriptformer.md) |
 | PCA（dataset-fitted） | 已实现 | [`smoke/test_pca_baseline.py`](../../smoke/test_pca_baseline.py) | [pca_baseline.md](pca_baseline.md) |
 | scVI（dataset-fitted） | 已实现 | [`smoke/test_scvi_baseline.py`](../../smoke/test_scvi_baseline.py) | [scvi_baseline.md](scvi_baseline.md) |
 

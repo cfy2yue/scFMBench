@@ -30,17 +30,17 @@ def _checkpoint_dir() -> Path:
     return Path(value).expanduser().resolve() if value else paths.pretrained_root() / "transcriptformer" / model
 
 
-def _ensure_ensembl_column(adata: ad.AnnData, gene_col_name: str) -> ad.AnnData:
+def _ensure_ensembl_column(adata: ad.AnnData, gene_col_name: str) -> tuple[ad.AnnData, str]:
     if gene_col_name in adata.var.columns:
-        return adata
+        return adata, gene_col_name
     out = adata.copy()
     for candidate in GENE_ID_CANDIDATES:
         if candidate in out.var.columns:
             out.var[gene_col_name] = out.var[candidate].astype(str).values
-            return out
+            return out, candidate
     if all(str(x).startswith(("ENS", "ENSG", "ENSMUSG")) for x in out.var_names[: min(50, out.n_vars)]):
         out.var[gene_col_name] = out.var_names.astype(str)
-        return out
+        return out, "var_names"
     raise ValueError(
         "TranscriptFormer requires Ensembl gene IDs. Add adata.var['ensembl_id'] "
         "or set LATENT_BENCH_TRANSCRIPTFORMER_GENE_COL to an existing var column."
@@ -136,7 +136,7 @@ def encode(
 
     gene_col = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_GENE_COL", "ensembl_id").strip()
     count_adata, use_raw, counts_source = _select_count_input(adata, input_is_log1p)
-    work_adata = _ensure_ensembl_column(count_adata, gene_col)
+    work_adata, gene_col_source = _ensure_ensembl_column(count_adata, gene_col)
     work_adata, filled_aux_cols = _ensure_aux_obs_columns(work_adata, ckpt)
 
     precision = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_PRECISION", "16-mixed")
@@ -210,6 +210,7 @@ def encode(
         "note": "README documents --embedding-layer-index, but current official argparse does not expose it.",
         "emb_type": emb_type,
         "gene_col_name": gene_col,
+        "gene_col_source": gene_col_source,
         "use_raw": use_raw,
         "counts_source": counts_source,
         "filled_aux_obs_columns": filled_aux_cols,
