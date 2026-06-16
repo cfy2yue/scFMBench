@@ -1347,7 +1347,10 @@ def fig4b_genepert(df: pd.DataFrame, out_dir: Path,
             pcac, how="left", on=["model", "dataset_id"],
             suffixes=("", "_pca"),
         )
-        fb = merged["perturb.centroid_shift.mean_l2_to_control_pca"].astype(float)
+        pca_col = "perturb.centroid_shift.mean_l2_to_control_pca"
+        if pca_col not in merged.columns:
+            pca_col = "perturb.centroid_shift.mean_l2_to_control"
+        fb = merged[pca_col].astype(float)
         df_b["_plot_l2sn"] = fb.combine_first(pd.to_numeric(df_b[col_sn], errors="coerce"))
 
     plot_col_l2sn = "_plot_l2sn" if "_plot_l2sn" in df_b.columns else col_sn
