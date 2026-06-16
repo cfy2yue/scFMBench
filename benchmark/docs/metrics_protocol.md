@@ -28,7 +28,7 @@
 
 ## 随机性
 
-- 默认种子在各 CLI 文档中给出（如 geometry `--seed`、atlas 内部 `seed=42`）；子采样类指标对种子敏感，对比时需固定。
+- 默认种子由 `run_metrics_one.py --seed` 统一传给 atlas、geometry、perturb 和 PCA 分支；子采样类指标对种子敏感，对比时需固定。
 
 ## Fit 范围
 

@@ -14,6 +14,7 @@ export SCFM_DATA_ROOT="${SCFM_DATA_ROOT:-$DELIVERY_ROOT/scFM_data}"
 export SCFM_THIRD_PARTY_ROOT="${SCFM_THIRD_PARTY_ROOT:-$DELIVERY_ROOT/scFM_third_party}"
 export COUPLEDFM_PRETRAINED_ROOT="${COUPLEDFM_PRETRAINED_ROOT:-$SCFM_PRETRAINED_ROOT}"
 export LATENT_BENCH_OUTPUT_ROOT="${LATENT_BENCH_OUTPUT_ROOT:-$SCFM_OUTPUT_ROOT}"
+PYTHON="${PYTHON:-python}"
 
 TOOLS="${SCFM_ROOT}/fm/tools"
 RUNS="${LATENT_BENCH_OUTPUT_ROOT}/embedding_runs"
@@ -38,18 +39,18 @@ fi
 
 cd "${TOOLS}"
 
-python3 validate_resources.py --skip-import-test
+"${PYTHON}" validate_resources.py --skip-import-test
 
 # Optional: refresh preflight + full manifest (does not overwrite manifest_with_X unless you regenerate it)
 # python3 preflight_embedding.py
 
-/usr/bin/python3 submit_embedding_queue.py \
+"${PYTHON}" submit_embedding_queue.py \
   --manifest "${MANIFEST}" \
   --preflight "${PREFLIGHT}" \
   --export-root "${EMB}" \
   --status-jsonl "${RUNS}/run_status.jsonl" \
   --log-file "${QUEUE_LOG}" \
-  --gpus 0 1 2 3 4 5 6 \
+  --gpus 0 1 2 3 \
   --device cuda \
   --batch-size "${BATCH_SIZE:-4}" \
   --skip-existing \

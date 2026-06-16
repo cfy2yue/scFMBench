@@ -148,7 +148,7 @@ def main() -> int:
         from sklearn.decomposition import PCA
         from sklearn.preprocessing import StandardScaler
 
-        k = min(128, z.shape[1])
+        k = min(128, z.shape[1], z.shape[0])
         ctrl_col = next((c for c in ("control", "is_control") if c in obs.columns), None)
         n_ctrl = int(obs[ctrl_col].astype(bool).sum()) if ctrl_col else 0
         if ctrl_col and n_ctrl >= max(k + 10, 200):
@@ -157,6 +157,10 @@ def main() -> int:
         else:
             fit_mask = np.ones(len(obs), dtype=bool)
             fit_scope = "all_cells"
+        n_fit = int(fit_mask.sum())
+        k = min(k, n_fit)
+        if k < 1:
+            raise SystemExit("pca128 needs at least one cell")
         z_fit = z[fit_mask].astype(np.float64)
         scaler = StandardScaler().fit(z_fit)
         pca = PCA(n_components=k, random_state=args.seed).fit(scaler.transform(z_fit))
@@ -185,6 +189,8 @@ def main() -> int:
                 obs,
                 batch_col=args.batch_col,
                 label_col=args.label_col,
+                seed=args.seed,
+                trust_random_state=args.seed,
             )
             atlas_payload["n_cells"] = int(z.shape[0])
             atlas_payload["latent_dim"] = int(z.shape[1])

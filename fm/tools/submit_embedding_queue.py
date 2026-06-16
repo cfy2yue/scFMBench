@@ -106,7 +106,7 @@ def main() -> int:
         default=DEFAULT_EMBEDDING_LOGS_DIR / "embedding_queue.log",
         help="Append human-readable progress, subprocess stdout/stderr excerpts",
     )
-    ap.add_argument("--gpus", type=str, nargs="+", default=[str(i) for i in range(7)])
+    ap.add_argument("--gpus", type=str, nargs="+", default=[str(i) for i in range(4)])
     ap.add_argument(
         "--models",
         type=str,

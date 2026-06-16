@@ -31,7 +31,7 @@ class Metric:
 ATLAS_METRICS: Tuple[Metric, ...] = (
     Metric("atlas.A1_nmi", "NMI", "Cluster-celltype NMI", "atlas", "up", ("atlas",), "either"),
     Metric("atlas.A1_ari", "ARI", "Cluster-celltype ARI", "atlas", "up", ("atlas",), "either"),
-    Metric("atlas.A2_clisi", "cLISI", "Cell-type local LISI (lower is better)", "atlas", "down", ("atlas",), "either"),
+    Metric("atlas.A2_clisi", "cLISI", "Cell-type local LISI conservation (scib scaled, higher is better)", "atlas", "up", ("atlas",), "either"),
     Metric("atlas.A3_ilisi", "iLISI", "Batch local LISI (higher = better mixing)", "atlas", "up", ("atlas",), "either"),
     Metric("atlas.A4_graph_connectivity", "GC", "Graph connectivity per label", "atlas", "up", ("atlas",), "either"),
     Metric("atlas.A5_trustworthiness", "Trust", "Trustworthiness (kNN preserved)", "atlas", "up", ("atlas",), "pca128"),

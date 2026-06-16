@@ -61,6 +61,19 @@ def discover_h5ad(roots: List[Path]) -> List[Dict[str, Any]]:
     return rows
 
 
+def _h5ad_has_materialized_x(path: Path) -> bool:
+    """Cheap backed check for a materialized AnnData X matrix."""
+    try:
+        import h5py
+    except Exception:
+        return True
+    try:
+        with h5py.File(path, "r") as h5:
+            return "X" in h5
+    except Exception:
+        return False
+
+
 def run_import_test(model: str) -> Dict[str, Any]:
     py = python_for_model(model)
     env = subprocess_env(model)
@@ -113,6 +126,17 @@ def main() -> int:
         default=DEFAULT_EMBEDDING_RUNS_DIR / "manifest.jsonl",
         help="manifest.jsonl for submit_embedding_queue.py (default: output/embedding_runs/)",
     )
+    ap.add_argument(
+        "--manifest-with-x",
+        type=Path,
+        default=DEFAULT_EMBEDDING_RUNS_DIR / "manifest_with_X.jsonl",
+        help="Manifest filtered to h5ad files with a materialized X group/dataset.",
+    )
+    ap.add_argument(
+        "--require-materialized-x",
+        action="store_true",
+        help="Write --manifest from the X-filtered dataset list as well.",
+    )
     ap.add_argument("--no-manifest", action="store_true", help="Do not write manifest.jsonl")
     ap.add_argument("--skip-import-test", action="store_true")
     ap.add_argument(
@@ -127,6 +151,9 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     datasets = discover_h5ad(args.roots)
+    datasets_with_x = [
+        row for row in datasets if _h5ad_has_materialized_x(Path(str(row["path"])))
+    ]
     model_list = args.models if args.models else list(MODEL_QUEUE_ORDER)
     models_report: Dict[str, Any] = {}
     for m in model_list:
@@ -153,6 +180,7 @@ def main() -> int:
         "default_output_root": str(OUTPUT_ROOT),
         "roots_scanned": [str(r) for r in args.roots],
         "n_h5ad": len(datasets),
+        "n_h5ad_with_x": len(datasets_with_x),
         "datasets": datasets,
         "models": models_report,
         "queue_order": [m for m in model_list if models_report[m].get("ready")],
@@ -161,8 +189,13 @@ def main() -> int:
 
     if not args.no_manifest:
         args.manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest_rows = datasets_with_x if args.require_materialized_x else datasets
         with open(args.manifest, "w") as mf:
-            for row in datasets:
+            for row in manifest_rows:
+                mf.write(json.dumps(row, default=str) + "\n")
+        args.manifest_with_x.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.manifest_with_x, "w") as mf:
+            for row in datasets_with_x:
                 mf.write(json.dumps(row, default=str) + "\n")
 
     print(
@@ -170,7 +203,9 @@ def main() -> int:
             {
                 "preflight": str(args.out),
                 "manifest": None if args.no_manifest else str(args.manifest),
+                "manifest_with_x": None if args.no_manifest else str(args.manifest_with_x),
                 "n_h5ad": len(datasets),
+                "n_h5ad_with_x": len(datasets_with_x),
                 "ready_models": out_obj["queue_order"],
             }
         )

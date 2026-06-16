@@ -73,6 +73,12 @@ def run_atlas_metrics(
     batches = obs[batch_col].astype(str).to_numpy()
     n_batch = len(np.unique(batches))
 
+    # pynndescent requires n_neighbors < n_samples; clamp so small atlas
+    # subsets (e.g. debug runs) do not crash. No effect for real atlases
+    # where n_cells >> n_neighbors.
+    n_cells = latent.shape[0]
+    n_neighbors = max(2, min(n_neighbors, n_cells - 1))
+
     nnr = _nn(latent, n_neighbors=n_neighbors, seed=seed)
     out: Dict[str, Any] = {}
 
