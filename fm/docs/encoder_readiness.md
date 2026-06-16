@@ -23,6 +23,8 @@
 | **xVERSE** | ExpressionOnlyEncoder | 恒 `False` | 无 `pert_var_idx` 亦可编码 | **Ready** | `pert_var_idx` 仅作可观测性/覆盖校验；不构成单独条件输入。 |
 | **CellNavi** | ExpressionOnlyEncoder | `force_pert and pert_var_idx_present` | 无矩阵亦可编码（仅表达 >0 且在 vocab 的基因进图） | **ReadyWithKnownLimits** | 稀疏子图编码；上游默认丢弃表达为 0 的基因 → `force_pert` 时用伪计数强制纳入 protected set。需要 `Nichenet/graph.pkl` + `pretrain_weights.pth` 等（默认优先 `pretrained/cellnavi/data/`，见 `encoder_impl/cellnavi.md`）。 |
 | **scFoundation** | ExpressionOnlyEncoder | `force_pert and pert_var_idx_present` | 无矩阵可走官方 cell 路径（仅 >0 基因进 ``gatherData``） | **ReadyWithKnownLimits** | 复刻 ``get_embedding.py`` cell 分支；protected 仅 OR 进 ``value_labels``，零表达位仍编码为 0。权重默认 ``pretrained/scFoundation/models.ckpt``；基因表在 ``third_party/scFoundation/model/OS_scRNA_gene_index.19264.tsv``。 |
+| **NicheFormer** | ExpressionOnlyEncoder | 恒 `False` | 需要 count-like `X` + Ensembl `var_names` 与官方 model mean 对齐 | **AdapterAddedNeedsWeights** | 官方代码是 Lightning + tokenized-data 流程，非稳定 h5ad CLI；adapter 直接用 `model.get_embeddings()` 的 mean pooling，但要求 Mendeley `.ckpt`、`model_means/model.h5ad`、raw/count-like `X`。 |
+| **TranscriptFormer** | ExpressionOnlyEncoder | 恒 `False` | 官方 CLI 可直接从 h5ad 输出 `obsm['embeddings']` | **AdapterAddedNeedsWeights** | 默认 `tf_sapiens`，要求 `var['ensembl_id']` 或 Ensembl `var_names`，输入为 raw counts（优先 `adata.raw.X`）；官方 cell embedding 为 mean-pooled cell representation。 |
 
 ### Dataset-fitted baselines（PCA / scVI）
 

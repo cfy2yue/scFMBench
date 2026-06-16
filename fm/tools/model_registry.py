@@ -36,6 +36,8 @@ ENV_NAME_BY_MODEL: Dict[str, str] = {
     "stack": "scdfm",
     "geneformer": "scdfm",
     "cellnavi": "cellnavi",
+    "nicheformer": "scdfm",
+    "transcriptformer": "scdfm",
 }
 
 # Initial GPU slot assignment (plan); actual queue may skip missing models.
@@ -47,6 +49,8 @@ MODEL_QUEUE_ORDER: List[str] = [
     "scldm",
     "stack",
     "state",
+    "nicheformer",
+    "transcriptformer",
     "xverse",
     "scgpt",
 ]
@@ -177,6 +181,22 @@ def check_weights(model: str) -> Tuple[str, str]:
         if Path(ck).is_file() and Path(tsv).is_file():
             return "ready", str(ck)
         return "missing", f"{ck}, {tsv}"
+    if m == "nicheformer":
+        ck = os.environ.get("LATENT_BENCH_NICHEFORMER_CKPT", str(PRETRAINED_ROOT / "nicheformer" / "nicheformer.ckpt"))
+        mean_h5ad = os.environ.get(
+            "LATENT_BENCH_NICHEFORMER_MEAN_H5AD",
+            str(paths.third_party_root() / "nicheformer" / "data" / "model_means" / "model.h5ad"),
+        )
+        if Path(ck).is_file() and Path(mean_h5ad).is_file():
+            return "ready", str(ck)
+        return "missing", f"NicheFormer ckpt or model mean missing: {ck}, {mean_h5ad}"
+    if m == "transcriptformer":
+        model = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_MODEL", "tf_sapiens").strip()
+        ck = os.environ.get("LATENT_BENCH_TRANSCRIPTFORMER_CKPT", str(PRETRAINED_ROOT / "transcriptformer" / model))
+        p = Path(ck)
+        if (p / "config.json").is_file() and (p / "model_weights.pt").is_file() and (p / "vocabs").is_dir():
+            return "ready", str(p)
+        return "missing", f"TranscriptFormer checkpoint dir missing config/model/vocabs: {p}"
     return "unknown", f"unknown model {model}"
 
 
@@ -186,11 +206,14 @@ def subprocess_env(model: str, base: Optional[Dict[str, str]] = None) -> Dict[st
     root = str(LATENT_BENCH_ROOT)
     xverse = str(paths.third_party_root() / "xVERSE_code")
     prev = env.get("PYTHONPATH", "")
-    if model.lower().strip() == "xverse":
+    m = model.lower().strip()
+    if m == "xverse":
         env["PYTHONPATH"] = f"{xverse}:{root}" + (f":{prev}" if prev else "")
+    elif m in {"nicheformer", "transcriptformer"}:
+        tp = paths.third_party_root() / m / "src"
+        env["PYTHONPATH"] = f"{tp}:{root}" + (f":{prev}" if prev else "")
     else:
         env["PYTHONPATH"] = root + (f":{prev}" if prev else "")
-    m = model.lower().strip()
     if m == "scgpt":
         env.setdefault("LATENT_BENCH_SCGPT_MODEL_DIR", str(PRETRAINED_ROOT / "scgpt"))
     elif m == "state":
@@ -218,6 +241,8 @@ def import_smoke_cmd(model: str) -> List[str]:
         "xverse": "adapters.xverse.encoder",
         "cellnavi": "adapters.cellnavi.encoder",
         "scfoundation": "adapters.scfoundation.encoder",
+        "nicheformer": "adapters.nicheformer.encoder",
+        "transcriptformer": "adapters.transcriptformer.encoder",
     }
     mm = mod_map.get(m, "")
     if not mm:

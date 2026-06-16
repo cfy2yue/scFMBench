@@ -125,8 +125,10 @@ def expected_tree() -> str:
     scgpt/{best_model.pt,vocab.json,args.json}
     cellnavi/data/{gene_name.txt,Nichenet,node2idx/pretrain}
     scFoundation/models.ckpt
+    nicheformer/nicheformer.ckpt
+    transcriptformer/tf_sapiens/{config.json,model_weights.pt,vocabs/}
     nichenet/{node2idx.json,idx2node.json,graph.pkl,graph.pt}
   scFM_third_party/
-    Geneformer/ uce/ state/ stack/ scGPT-main/ scFoundation/ scldm/ xVERSE_code/ CellNavi/
+    Geneformer/ uce/ state/ stack/ scGPT-main/ scFoundation/ scldm/ xVERSE_code/ CellNavi/ nicheformer/ transcriptformer/
   scFM_output/
     embeddings/ embedding_runs/ metrics/ logs/ figures/ dataset_fitted/ tmp/"""

@@ -79,6 +79,8 @@ def _required_third_party() -> Dict[str, Path]:
         "xVERSE_code": root / "xVERSE_code",
         "CellNavi": root / "CellNavi",
         "dataset_fitted_baseline": root / "dataset_fitted_baseline",
+        "nicheformer": root / "nicheformer",
+        "transcriptformer": root / "transcriptformer",
     }
 
 
@@ -94,6 +96,8 @@ def _third_party_for_models(models: Iterable[str]) -> Dict[str, Path]:
         "scldm": ["scldm"],
         "xverse": ["xVERSE_code"],
         "cellnavi": ["CellNavi"],
+        "nicheformer": ["nicheformer"],
+        "transcriptformer": ["transcriptformer"],
         "pca": ["dataset_fitted_baseline"],
         "pca_baseline": ["dataset_fitted_baseline"],
     }

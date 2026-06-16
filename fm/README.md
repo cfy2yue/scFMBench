@@ -21,6 +21,8 @@ weights are external:
 | scLDM | `scFM_third_party/scldm` | `adapters/scldm` |
 | scFoundation | `scFM_third_party/scFoundation` | `adapters/scfoundation` |
 | CellNavi | `scFM_third_party/CellNavi` | `adapters/cellnavi` |
+| NicheFormer | `scFM_third_party/nicheformer` | `adapters/nicheformer` |
+| TranscriptFormer | `scFM_third_party/transcriptformer` | `adapters/transcriptformer` |
 | PCA baseline | `scFM_third_party/dataset_fitted_baseline` | `adapters/pca_baseline` |
 
 ## Tools

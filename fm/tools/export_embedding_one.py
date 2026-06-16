@@ -138,12 +138,24 @@ def _call_encode(
             n_collate_workers=0,
             dataloader_num_workers=0,
         )
+    if m == "nicheformer":
+        from adapters.nicheformer.encoder import encode
+
+        return encode(adata, device=device, batch_size=batch_size, force_pert=force_pert, input_is_log1p=input_is_log1p)
+    if m == "transcriptformer":
+        from adapters.transcriptformer.encoder import encode
+
+        return encode(adata, device=device, batch_size=batch_size, force_pert=force_pert, input_is_log1p=input_is_log1p)
     raise ValueError(f"Unknown model: {model}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--model", required=True, help="scgpt|xverse|geneformer|uce|state|stack|scldm|cellnavi|scfoundation")
+    ap.add_argument(
+        "--model",
+        required=True,
+        help="scgpt|xverse|geneformer|uce|state|stack|scldm|cellnavi|scfoundation|nicheformer|transcriptformer",
+    )
     ap.add_argument("--adata", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--device", type=str, default="cuda")

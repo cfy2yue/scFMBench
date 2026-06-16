@@ -20,11 +20,13 @@ MM_PER_INCH = 25.4
 FM_MODELS: Tuple[str, ...] = (
     "cellnavi",
     "geneformer",
+    "nicheformer",
     "scfoundation",
     "scgpt",
     "scldm",
     "stack",
     "state",
+    "transcriptformer",
     "uce",
     "xverse",
 )
@@ -35,11 +37,13 @@ ALL_MODELS: Tuple[str, ...] = FM_MODELS + BASELINE_MODELS
 MODEL_DISPLAY: Dict[str, str] = {
     "cellnavi": "CellNavi",
     "geneformer": "Geneformer",
+    "nicheformer": "NicheFormer",
     "scfoundation": "scFoundation",
     "scgpt": "scGPT",
     "scldm": "scLDM",
     "stack": "STACK",
     "state": "STATE",
+    "transcriptformer": "TranscriptFormer",
     "uce": "UCE",
     "xverse": "xVerse",
     "pca": "PCA-128",
@@ -51,11 +55,13 @@ MODEL_DISPLAY: Dict[str, str] = {
 _FM_COLORS = (
     "#4C72B0",  # cellnavi   blue
     "#DD8452",  # geneformer orange
+    "#009E73",  # nicheformer green-teal
     "#55A868",  # scfoundation green
     "#C44E52",  # scgpt      red
     "#8172B2",  # scldm      purple
     "#937860",  # stack      brown
     "#DA8BC3",  # state      pink
+    "#0072B2",  # transcriptformer blue
     "#8C8C8C",  # uce        slate (will reassign below)
     "#CCB974",  # xverse     ochre
 )
@@ -63,7 +69,7 @@ _BASELINE_COLORS = ("#444444", "#999999")  # PCA dark, scVI light
 
 # Reassign uce a distinctive teal so it doesn't clash with baseline grey
 _FM_COLORS = list(_FM_COLORS)
-_FM_COLORS[7] = "#17BECF"  # uce teal
+_FM_COLORS[9] = "#17BECF"  # uce teal
 _FM_COLORS = tuple(_FM_COLORS)
 
 MODEL_PALETTE: Dict[str, str] = {

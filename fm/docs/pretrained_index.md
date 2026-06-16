@@ -15,10 +15,22 @@ explicit override.
 | scGPT | `scgpt/{best_model.pt,vocab.json,args.json}` |
 | CellNavi | `cellnavi/data/pretrain/pretrain_weights.pth`, `cellnavi/data/gene_name.txt`, `cellnavi/data/Nichenet/{node2idx.json,graph.pkl}` |
 | scFoundation | `scFoundation/models.ckpt` |
+| NicheFormer | `nicheformer/nicheformer.ckpt`; model mean defaults to `SCFM_THIRD_PARTY_ROOT/nicheformer/data/model_means/model.h5ad` |
+| TranscriptFormer | `transcriptformer/tf_sapiens/{config.json,model_weights.pt,vocabs/}` by default; set `LATENT_BENCH_TRANSCRIPTFORMER_MODEL=tf_exemplar|tf_metazoa` or `LATENT_BENCH_TRANSCRIPTFORMER_CKPT=/path/to/checkpoint_dir` for another official checkpoint |
 | NicheNet standalone | `nichenet/{node2idx.json,idx2node.json,graph.pkl,graph.pt}` |
 
 Third-party source code is separate and should be placed under
 `SCFM_THIRD_PARTY_ROOT` (`<delivery_root>/scFM_third_party` by default).
+
+Official download notes:
+
+- NicheFormer README points pretrained weights to Mendeley; place the resulting
+  `.ckpt` at `SCFM_PRETRAINED_ROOT/nicheformer/nicheformer.ckpt` or set
+  `LATENT_BENCH_NICHEFORMER_CKPT`.
+- TranscriptFormer weights are downloaded with the official CLI, e.g.
+  `transcriptformer download tf-sapiens --checkpoint-dir $SCFM_PRETRAINED_ROOT/transcriptformer`.
+  The adapter uses `tf_sapiens` by default because the current benchmark data are
+  human-centric; use `tf_exemplar` for cross-species data.
 
 Validate with:
 

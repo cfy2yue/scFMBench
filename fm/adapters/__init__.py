@@ -19,6 +19,8 @@ __all__ = [
     "xverse",
     "cellnavi",
     "scfoundation",
+    "nicheformer",
+    "transcriptformer",
     "pca_baseline",
     "scvi_baseline",
 ]

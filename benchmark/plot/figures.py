@@ -138,8 +138,24 @@ def _save(fig: plt.Figure, out_dir: Path, name: str) -> Tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf = out_dir / f"{name}.pdf"
     png = out_dir / f"{name}.png"
+    svg = out_dir / f"{name}.svg"
+    meta = out_dir / f"{name}.meta.json"
     fig.savefig(pdf)
     fig.savefig(png, dpi=600)
+    fig.savefig(svg)
+    meta.write_text(
+        json.dumps(
+            {
+                "figure": name,
+                "artifacts": {"pdf": pdf.name, "png": png.name, "svg": svg.name},
+                "dpi_png": 600,
+                "figsize_inches": [float(x) for x in fig.get_size_inches()],
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     plt.close(fig)
     return pdf, png
 
