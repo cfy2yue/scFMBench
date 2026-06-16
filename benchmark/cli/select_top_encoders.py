@@ -83,6 +83,7 @@ def select_top(
     perf_weight: float,
     eff_weight: float,
     top_k: int,
+    min_datasets: int,
 ) -> pd.DataFrame:
     summary = paths.output_root() / "metrics" / "summary_all.csv"
     if not summary.is_file():
@@ -96,6 +97,25 @@ def select_top(
         wide = wide[wide["latent_space"].eq(latent_space)].copy()
     if wide.empty:
         raise ValueError(f"No benchmark rows for latent_space={latent_space!r}")
+    coverage = (
+        wide.groupby("model")
+        .agg(
+            n_datasets=("dataset_id", "nunique"),
+            n_rows=("dataset_id", "size"),
+            n_categories=("category", "nunique"),
+            categories=("category", lambda s: ",".join(sorted(set(map(str, s))))),
+        )
+        .reset_index()
+    )
+    if min_datasets > 0:
+        keep = set(coverage.loc[coverage["n_datasets"] >= min_datasets, "model"])
+        wide = wide[wide["model"].isin(keep)].copy()
+        coverage = coverage[coverage["model"].isin(keep)].copy()
+        if wide.empty:
+            raise ValueError(
+                f"No benchmark rows left after --min-datasets {min_datasets}; "
+                f"relax coverage filtering or run more datasets."
+            )
 
     metric_cols = set(wide.columns)
     headline = [m for m in M.ALL_METRICS if m.column in metric_cols and m.column in (set(M.HEADLINE_ATLAS) | set(M.HEADLINE_GEOMETRY) | set(M.HEADLINE_PERTURB))]
@@ -106,11 +126,17 @@ def select_top(
 
     eff = _efficiency_score(_load_throughput())
     out = perf.merge(eff, on="model", how="left")
+    out = out.merge(coverage, on="model", how="left")
     out["efficiency_score"] = out["efficiency_score"].fillna(0.5)
     out["median_cells_per_s"] = out["median_cells_per_s"].astype(float)
     out["n_runs"] = out["n_runs"].fillna(0).astype(int)
+    out["n_datasets"] = out["n_datasets"].fillna(0).astype(int)
+    out["n_rows"] = out["n_rows"].fillna(0).astype(int)
+    out["n_categories"] = out["n_categories"].fillna(0).astype(int)
+    out["categories"] = out["categories"].fillna("")
     out["composite_score"] = perf_weight * out["performance_score"] + eff_weight * out["efficiency_score"]
     out["latent_space_filter"] = latent_space
+    out["min_datasets_filter"] = int(min_datasets)
     out["n_metric_values"] = normed.groupby("model")["score"].size().reindex(out["model"]).fillna(0).astype(int).values
     out = out.sort_values(["composite_score", "performance_score", "efficiency_score"], ascending=False).reset_index(drop=True)
     out["rank"] = np.arange(1, len(out) + 1)
@@ -123,6 +149,12 @@ def main() -> int:
     ap.add_argument("--top-k", type=int, default=3)
     ap.add_argument("--perf-weight", type=float, default=0.75)
     ap.add_argument("--eff-weight", type=float, default=0.25)
+    ap.add_argument(
+        "--min-datasets",
+        type=int,
+        default=0,
+        help="Drop models with fewer covered datasets after latent-space filtering; 0 disables filtering.",
+    )
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
@@ -135,8 +167,14 @@ def main() -> int:
     eff_w = args.eff_weight / total
 
     try:
-        out = select_top(latent_space=args.latent_space, perf_weight=perf_w, eff_weight=eff_w, top_k=args.top_k)
-    except FileNotFoundError as exc:
+        out = select_top(
+            latent_space=args.latent_space,
+            perf_weight=perf_w,
+            eff_weight=eff_w,
+            top_k=args.top_k,
+            min_datasets=args.min_datasets,
+        )
+    except (FileNotFoundError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
