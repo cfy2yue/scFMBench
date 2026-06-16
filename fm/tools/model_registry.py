@@ -183,15 +183,25 @@ def check_weights(model: str) -> Tuple[str, str]:
         return "missing", f"{ck}, {tsv}"
     if m == "nicheformer":
         ck = os.environ.get("LATENT_BENCH_NICHEFORMER_CKPT", str(PRETRAINED_ROOT / "nicheformer" / "nicheformer.ckpt"))
+        hf_dir = Path(
+            os.environ.get(
+                "LATENT_BENCH_NICHEFORMER_HF_DIR",
+                str(PRETRAINED_ROOT / "nicheformer" / "theislab_Nicheformer"),
+            )
+        )
         mean_h5ad = os.environ.get(
             "LATENT_BENCH_NICHEFORMER_MEAN_H5AD",
             str(paths.third_party_root() / "nicheformer" / "data" / "model_means" / "model.h5ad"),
         )
         if Path(ck).is_file() and Path(mean_h5ad).is_file():
             return "ready", str(ck)
+        if (hf_dir / "config.json").is_file() and (hf_dir / "model.safetensors").is_file() and Path(mean_h5ad).is_file():
+            return "ready", str(hf_dir)
         missing = []
-        if not Path(ck).is_file():
-            missing.append(f"ckpt={ck}")
+        if not Path(ck).is_file() and not (
+            (hf_dir / "config.json").is_file() and (hf_dir / "model.safetensors").is_file()
+        ):
+            missing.append(f"ckpt={ck} or hf_dir={hf_dir}")
         if not Path(mean_h5ad).is_file():
             missing.append(f"model_mean={mean_h5ad}")
         return "missing", "NicheFormer missing " + ", ".join(missing)
