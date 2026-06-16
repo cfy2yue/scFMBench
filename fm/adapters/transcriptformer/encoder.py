@@ -30,7 +30,7 @@ def _ensure_ensembl_column(adata: ad.AnnData, gene_col_name: str) -> ad.AnnData:
     if gene_col_name in adata.var.columns:
         return adata
     out = adata.copy()
-    for candidate in ("ensembl_id", "gene_id", "feature_id", "gene_ids"):
+    for candidate in ("ensembl_id", "ensemblid", "gene_id", "feature_id", "gene_ids"):
         if candidate in out.var.columns:
             out.var[gene_col_name] = out.var[candidate].astype(str).values
             return out
