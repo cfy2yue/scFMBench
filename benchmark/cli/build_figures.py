@@ -8,10 +8,12 @@ Usage (from scFM root):
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
+import subprocess
 import traceback
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import sys
 
@@ -37,7 +39,72 @@ def _try_figure(
             "error": f"{type(exc).__name__}: {exc}",
             "traceback": traceback.format_exc(limit=8),
         }
-    return {"name": name, "pdf": str(pdf), "png": str(png)}, None
+    svg = pdf.with_suffix(".svg")
+    meta = pdf.with_suffix(".meta.json")
+    record = {"name": name, "pdf": str(pdf), "png": str(png)}
+    if svg.is_file():
+        record["svg"] = str(svg)
+    if meta.is_file():
+        record["meta"] = str(meta)
+    return record, None
+
+
+def _git_commit(root: Path) -> str | None:
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return None
+    return out or None
+
+
+def _existing_inputs(paths_to_check: dict[str, Path]) -> dict[str, str]:
+    return {k: str(v) for k, v in paths_to_check.items() if v.is_file()}
+
+
+def _figure_provenance(df, scfm: Path, out_dir: Path) -> dict[str, Any]:
+    metrics_root = paths.output_root() / "metrics"
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "scfm_root": str(scfm),
+        "git_commit": _git_commit(scfm),
+        "out_dir": str(out_dir),
+        "input_files": _existing_inputs({
+            "summary_all": metrics_root / "summary_all.csv",
+            "summary_all_raw": metrics_root / "summary_all_raw.csv",
+            "summary_all_pca128": metrics_root / "summary_all_pca128.csv",
+            "run_status_transcriptformer_chempert": metrics_root / "run_status_transcriptformer_chempert.jsonl",
+            "run_manifest_transcriptformer_chempert": metrics_root / "run_manifest_transcriptformer_chempert.jsonl",
+        }),
+        "n_rows_summary_all": int(len(df)),
+        "models": sorted(map(str, df["model"].dropna().unique())),
+        "latent_spaces": sorted(map(str, df["latent_space"].dropna().unique())),
+        "dataset_ids": sorted(map(str, df["dataset_id"].dropna().unique())),
+        "categories": sorted(map(str, df["category"].dropna().unique())) if "category" in df.columns else [],
+        "style": {
+            "png_dpi": 600,
+            "pdf_fonttype": 42,
+            "svg_fonttype": "none",
+            "palette": "benchmark.plot.style.MODEL_PALETTE",
+        },
+    }
+
+
+def _augment_figure_meta(records: list[dict[str, str]], provenance: dict[str, Any]) -> None:
+    for rec in records:
+        meta_s = rec.get("meta")
+        if not meta_s:
+            continue
+        meta_path = Path(meta_s)
+        try:
+            obj = json.loads(meta_path.read_text())
+        except Exception:
+            obj = {}
+        obj["provenance"] = provenance
+        meta_path.write_text(json.dumps(obj, indent=2) + "\n")
 
 
 def main() -> int:
@@ -56,6 +123,7 @@ def main() -> int:
     per_pert = D.per_perturb_table(scfm)
     df = D.augment_with_topk_spearman(df, scfm, out_dir, per_pert)
     df = D.augment_with_mantel_spearman(df, scfm, out_dir)
+    provenance = _figure_provenance(df, scfm, out_dir)
 
     has_atlas = df["category"].isin(("atlas", "atlas_TS")).any()
     has_chempert = df["category"].eq("chempert").any()
@@ -100,17 +168,16 @@ def main() -> int:
             failed_figures.append(failure)
         else:
             figure_records.append(record)
+    _augment_figure_meta(figure_records, provenance)
 
     manifest = {
-        "scfm_root": str(scfm),
-        "out_dir": str(out_dir),
+        **provenance,
         "figures": figure_records,
         "failed_figures": failed_figures,
         "skipped_figures": skipped_figures,
         "n_figures": int(len(figure_records)),
         "n_failed_figures": int(len(failed_figures)),
         "n_skipped_figures": int(len(skipped_figures)),
-        "n_rows_summary_all": int(len(df)),
         "n_models": int(df["model"].nunique()),
         "n_datasets": int(df["dataset_id"].nunique()),
     }

@@ -42,6 +42,7 @@ from . import pert_similarity as PS
 
 
 LOG = logging.getLogger(__name__)
+_MISSING_LATENT_WARNED: set[str] = set()
 
 
 def _three_pillar_balanced(
@@ -206,7 +207,10 @@ def _median_cell_l2_norm(
         return float(cache[key])
     latent_path = _embeddings_root_from_out_dir(out_dir) / model / dataset_id / "raw" / "latent.npy"
     if not latent_path.is_file():
-        LOG.warning("Missing latent for norm cache: %s", latent_path)
+        warn_key = str(latent_path)
+        if warn_key not in _MISSING_LATENT_WARNED:
+            LOG.warning("Missing latent for norm cache: %s", latent_path)
+            _MISSING_LATENT_WARNED.add(warn_key)
         return float("nan")
     Z = np.load(latent_path, mmap_mode="r")
     norms = np.linalg.norm(Z, axis=1)
