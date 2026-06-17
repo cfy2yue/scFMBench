@@ -33,7 +33,7 @@ FM_MODELS: Tuple[str, ...] = (
 BASELINE_MODELS: Tuple[str, ...] = ("pca", "scvi")
 ALL_MODELS: Tuple[str, ...] = FM_MODELS + BASELINE_MODELS
 
-# Pretty display names (kept short for tick labels)
+# Pretty display names (kept short and stylistically consistent for tick labels)
 MODEL_DISPLAY: Dict[str, str] = {
     "cellnavi": "CellNavi",
     "geneformer": "Geneformer",
@@ -41,13 +41,13 @@ MODEL_DISPLAY: Dict[str, str] = {
     "scfoundation": "scFoundation",
     "scgpt": "scGPT",
     "scldm": "scLDM",
-    "stack": "STACK",
-    "state": "STATE",
+    "stack": "Stack",
+    "state": "State",
     "transcriptformer": "TranscriptFormer",
     "uce": "UCE",
     "xverse": "xVerse",
-    "pca": "PCA-128",
-    "scvi": "scVI-128",
+    "pca": "PCA",
+    "scvi": "scVI",
 }
 
 # Categorical palette for FM (tab10-derived, color-vision-safe alternates).

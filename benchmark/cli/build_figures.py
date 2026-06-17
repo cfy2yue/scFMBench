@@ -65,6 +65,34 @@ def _existing_inputs(paths_to_check: dict[str, Path]) -> dict[str, str]:
     return {k: str(v) for k, v in paths_to_check.items() if v.is_file()}
 
 
+def _model_coverage(df) -> dict[str, Any]:
+    coverage: dict[str, Any] = {}
+    chempert_only: list[str] = []
+    if not {"model", "dataset_id", "category"}.issubset(df.columns):
+        return {"by_model": coverage, "chempert_only_models": chempert_only}
+    for model, sub in df.groupby("model"):
+        categories = sorted(map(str, sub["category"].dropna().unique()))
+        datasets = sorted(map(str, sub["dataset_id"].dropna().unique()))
+        latent_spaces = sorted(map(str, sub["latent_space"].dropna().unique())) if "latent_space" in sub else []
+        coverage[str(model)] = {
+            "categories": categories,
+            "n_categories": int(len(categories)),
+            "n_datasets": int(len(datasets)),
+            "latent_spaces": latent_spaces,
+        }
+        if categories == ["chempert"]:
+            chempert_only.append(str(model))
+    return {
+        "by_model": coverage,
+        "chempert_only_models": sorted(chempert_only),
+        "coverage_note": (
+            "Models listed under chempert_only_models currently contribute only "
+            "chemical perturbation rows to aggregate benchmark figures; do not "
+            "interpret their blank atlas/genepert blocks as failed metrics."
+        ),
+    }
+
+
 def _figure_provenance(df, scfm: Path, out_dir: Path) -> dict[str, Any]:
     metrics_root = paths.output_root() / "metrics"
     return {
@@ -81,9 +109,11 @@ def _figure_provenance(df, scfm: Path, out_dir: Path) -> dict[str, Any]:
         }),
         "n_rows_summary_all": int(len(df)),
         "models": sorted(map(str, df["model"].dropna().unique())),
+        "model_display": {m: ST.MODEL_DISPLAY.get(m, m) for m in sorted(map(str, df["model"].dropna().unique()))},
         "latent_spaces": sorted(map(str, df["latent_space"].dropna().unique())),
         "dataset_ids": sorted(map(str, df["dataset_id"].dropna().unique())),
         "categories": sorted(map(str, df["category"].dropna().unique())) if "category" in df.columns else [],
+        "model_coverage": _model_coverage(df),
         "style": {
             "png_dpi": 600,
             "pdf_fonttype": 42,
